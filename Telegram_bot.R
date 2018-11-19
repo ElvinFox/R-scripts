@@ -3,7 +3,7 @@ file.edit(user_renviron)
 
 #   bot name -> TheOneForTest_bot
 #   chat_id -> 279836128
-#   R_TELEGRAM_BOT_TheOneForTest_bot = 748768104:AAHlwNV7Rv5rQma_92JwxBHEcoraWq1h9-I
+#   R_TELEGRAM_BOT_TheOneForTest_bot = 
 
 # install.packages("telegram.bot")
 library(telegram.bot)
