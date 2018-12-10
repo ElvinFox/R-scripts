@@ -1,0 +1,196 @@
+###############################
+# parsing BitcoinTalk thread  #
+###############################
+library('rvest')
+library(dplyr)
+library(tibble)
+library(xml2)
+library(stringr)
+library(lubridate)   #important library for date manipulations
+
+
+#   Creating empty DF
+#   columns: author, post_date, post_text, Rank, Activity
+
+DF <- data.frame(matrix(ncol = 5, nrow = 0))
+x <- c( 'author', 'date', 'text', 'rank', 'activity' )
+colnames(DF) <- x
+
+#   search for the number of the last page
+input <- 'https://bitcointalk.org/index.php?topic=3407522'        #   <<------  insert here the core url
+url <- paste0(input, '.', 0)
+BCT <- url %>% read_html() 
+
+pages_data <- BCT %>% 
+    html_nodes('.navPages') %>% 
+    html_text()  
+
+pages_data <- as.numeric(pages_data)
+last_page_number <- max(pages_data, na.rm = TRUE)
+max_number_of_posts <- last_page_number*20
+
+minutes <- floor(last_page_number / 60)
+seconds <- last_page_number %% 60
+
+
+
+
+#   starting main loop
+for ( n in 1 : last_page_number) {
+
+    if (n == 1) print( paste0('Estimated time to complete is -> ', minutes, ' minutes and ', seconds, ' seconds.'  ) ) 
+    
+url <- paste0(input, '.', 20*n - 20)
+BCT <- url %>% read_html() 
+    
+#   search for the number of views
+views_data <- BCT %>% 
+    html_nodes(xpath = '//*[@id="top_subject"]/text()') %>% 
+    html_text() 
+
+regexp <- "[[:digit:]]+"
+number_of_views <- as.numeric(str_extract(views_data, regexp))
+
+
+#   search for class of posts
+all_classes <- BCT %>% 
+    html_nodes("*") %>% 
+    html_attr("class")
+
+class_of_posts <- names( which( table( all_classes[which(nchar(all_classes) == 22)] ) == 20 ) )
+
+
+#   list of authors
+authors <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.poster_info') %>% 
+    html_nodes('b') %>% 
+    html_text()  
+#authors[1]
+
+#   list of posts
+post <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.post') %>% 
+    html_text()  
+#post[3]
+
+#   list of posts'dates
+post_date <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.td_headerandpost') %>% 
+    html_nodes('.smalltext') %>%
+    html_text()  
+#post_date[3]
+
+#   list of users's stats -> name
+user_name <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.poster_info') %>%
+    html_nodes('b') %>%
+    html_text()  
+#user_name[2]
+
+
+#   list of users's stats - Activity
+user_activity <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.poster_info') %>%
+    html_nodes('div.smalltext') %>%
+    html_text()  
+#user_activity[2]
+
+user_activity <- gsub(".*Activity:", "", user_activity)
+user_activity <- gsub("\n.*", "",  user_activity )
+user_activity <- gsub("[[:space:]]", "", user_activity)
+user_activity <- as.numeric(user_activity)
+#user_activity
+
+
+
+#   list of users's stats -> Rank
+user_rank <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.poster_info') %>%
+    html_nodes('div.smalltext') %>%
+    html_text()  
+#user_rank[2]
+
+user_rank <- gsub("*\t", "", user_rank)
+user_rank <- gsub("*\n", "", user_rank)
+user_rank <- gsub("Activity:.*", "", user_rank)
+user_rank <- gsub(".{3}line", "", user_rank)
+user_rank <- gsub("[[:space:]]", "", user_rank)
+#user_rank
+
+
+inter <- cbind(authors, post_date, post, user_rank, user_activity)
+DF <- rbind(DF, inter)
+
+print( paste0( n , ' page(s) parsed  ', ' out of ', last_page_number,' ', date() ) ) 
+}
+
+write.csv2(DF, file = "BCT_parsing.csv")
+
+
+DF <- DF[!is.na(DF$post_date),]
+DF$post_date <- mdy_hms(DF$post_date)
+
+DF$Month_ <- as.Date(cut(DF$post_date,
+                         breaks = "month"))
+For_plotting <- DF %>% 
+    group_by(Month_) %>% 
+    summarise(count = n()) 
+
+library(ggplot2)
+library(scales)
+
+####    Summary of the thread
+ print(
+    paste0( 'There are ', last_page_number, ' pages in the thread.',
+               ' The topic was viewed ', round(number_of_views/1e3,1), 'k times.',
+            ' There are ')
+       )
+
+####    Plot for popularity tracking
+ggplot(For_plotting, aes( Month_, count, fill = Month_)) + 
+    stat_summary(fun.y = sum, geom = "bar", alpha = 0.65) + # adds up all observations for the month
+    scale_x_date( labels = date_format("%Y-%m"), breaks = "1 month") +
+    theme(
+        plot.title = element_text(color="#993333", size=14, face="bold.italic"),
+        axis.title.x = element_text(color="#993333", size=14, face="bold"),
+        axis.title.y = element_text(color="#993333", size=14, face="bold"),
+        legend.position="none"
+    ) +
+    xlab("Date") +
+    ylab("Number of posts") +
+    ggtitle("Number of posts by month") 
+
+####    Plot for pie chart of different members types
+
+For_pie <- DF %>% 
+    group_by(user_rank) %>% 
+    summarise(count = n()) %>% 
+    mutate(per = round(count/sum(count)*100,1) ) %>% 
+    arrange(desc(per))
+
+suppressPackageStartupMessages(library("ggthemes"))
+
+bar <- ggplot(For_pie, aes(user_rank, count, fill = user_rank)) + 
+    geom_bar(stat = "identity", alpha = 0.65) +
+    theme(
+        plot.title = element_text(color="#993333", size=14, face="bold.italic"),
+        axis.title.x = element_text(color="#993333", size=14, face="bold"),
+        axis.title.y = element_text(color="#993333", size=14, face="bold"),
+        legend.position="none"
+    ) +
+    xlab("Member status") +
+    ylab("Number of posts") +
+    ggtitle("Number of posts by user status") 
+    # theme_few()
+bar
+
+
+#   tutorial how to build graph by monts/weeks
+#   https://www.r-bloggers.com/plot-weekly-or-monthly-totals-in-r/
+
