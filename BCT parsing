@@ -17,7 +17,8 @@ x <- c( 'author', 'date', 'text', 'rank', 'activity' )
 colnames(DF) <- x
 
 #   search for the number of the last page
-input <- 'https://bitcointalk.org/index.php?topic=3407522'        #   <<------  insert here the core url
+#input <- 'https://bitcointalk.org/index.php?topic=3407522'        #   <<------  insert here the core url
+input <- 'https://bitcointalk.org/index.php?topic=5032793'
 url <- paste0(input, '.', 0)
 BCT <- url %>% read_html() 
 
@@ -33,7 +34,7 @@ minutes <- floor(last_page_number / 60)
 seconds <- last_page_number %% 60
 
 
-
+#n <- 2
 
 #   starting main loop
 for ( n in 1 : last_page_number) {
@@ -68,12 +69,38 @@ authors <- BCT %>%
     html_text()  
 #authors[1]
 
+
+
 #   list of posts
 post <- BCT %>% 
     html_nodes(paste0('.',class_of_posts)) %>% 
     html_nodes('.post') %>% 
     html_text()  
-#post[3]
+#post[20]
+post
+
+post1 <- BCT %>% 
+    html_nodes(paste0('.',class_of_posts)) %>% 
+    html_nodes('.post') 
+
+result <- list()
+
+for(i in 1:20) {
+    result[i] <- grepl("Quote", post1[i])
+}
+nmbr <-  which(result == TRUE)
+
+#remove quotes 
+# for(i in nmbr) {
+#     post[i] <- gsub(".*\n</div>|</div>.*", "", post1[i])
+# }
+
+
+for(i in nmbr) {
+    pos <- as.numeric( gregexpr(pattern ='</div>', as.character( post1[i] ) )[[1]] )
+    post[i] <- substr(as.character( post1[i] ),pos[length(pos)-1], pos[length(pos)] )
+}
+
 
 #   list of posts'dates
 post_date <- BCT %>% 
@@ -130,7 +157,7 @@ DF <- rbind(DF, inter)
 print( paste0( n , ' page(s) parsed  ', ' out of ', last_page_number,' ', date() ) ) 
 }
 
-write.csv2(DF, file = "BCT_parsing.csv")
+#write.csv2(DF, file = "BCT_parsing.csv")
 
 
 DF <- DF[!is.na(DF$post_date),]
@@ -145,15 +172,9 @@ For_plotting <- DF %>%
 library(ggplot2)
 library(scales)
 
-####    Summary of the thread
- print(
-    paste0( 'There are ', last_page_number, ' pages in the thread.',
-               ' The topic was viewed ', round(number_of_views/1e3,1), 'k times.',
-            ' There are ')
-       )
 
 ####    Plot for popularity tracking
-ggplot(For_plotting, aes( Month_, count, fill = Month_)) + 
+pop <- ggplot(For_plotting, aes( Month_, count, fill = Month_)) + 
     stat_summary(fun.y = sum, geom = "bar", alpha = 0.65) + # adds up all observations for the month
     scale_x_date( labels = date_format("%Y-%m"), breaks = "1 month") +
     theme(
@@ -165,6 +186,7 @@ ggplot(For_plotting, aes( Month_, count, fill = Month_)) +
     xlab("Date") +
     ylab("Number of posts") +
     ggtitle("Number of posts by month") 
+pop
 
 ####    Plot for pie chart of different members types
 
@@ -194,3 +216,93 @@ bar
 #   tutorial how to build graph by monts/weeks
 #   https://www.r-bloggers.com/plot-weekly-or-monthly-totals-in-r/
 
+
+
+####    Summary of the thread
+print(
+    paste0( 'There are ', last_page_number, ' pages in the thread.',
+            ' The topic was viewed ', round(number_of_views/1e3,1), 'k times.',
+            ' There are ')
+)
+
+topic_starter <- as.character(DF$authors[[1]])
+
+print( 
+    paste0( 
+        'The topic starter -> ', topic_starter, '  contributed the thread with ', as.numeric( table(DF$authors) [topic_starter]), ' posts.',
+        ' This is ~', round(as.numeric( table(DF$authors) [topic_starter])/max_number_of_posts,1)*100, '% of all posts in the thread.'
+    )
+)
+
+
+
+
+
+####   Cleaning DF
+
+#convert to number
+DF$user_activity <- as.numeric(DF$user_activity)
+DF$post <- as.character(DF$post)
+DF$post <-   gsub("\n", "",  DF$post)
+DF$post <-   gsub("<br>", "", DF$post)
+DF$post <-   gsub("\u0092", "'", DF$post)
+DF$post <-   gsub("\u0096", "-", DF$post)
+DF$post <-   gsub("<", "", DF$post)
+DF$post <-   gsub("</div>", "", DF$post)
+
+#remove punctuation
+DF$post <-   gsub('[[:punct:] ]+',' ', DF$post)
+
+
+write.csv2(DF, file = "BCT_parsing.csv")
+
+DF$post[28]
+
+
+
+####    NLP
+
+library(rlist)
+library(tidytext)
+library(stringr)
+
+nrc <- get_sentiments("nrc")
+afinn <- get_sentiments("afinn")
+
+
+Words_ <- strsplit(DF$post, " ")
+Words_ <- unlist(Words_)
+Words_ <- tolower(Words_)
+#Words_
+
+df <- list()
+
+for ( i in 1 : length (Words_) ) {
+    if ( nchar (Words_[i]) > 2 )  df <- c(df, Words_[i] )
+}
+
+
+df <- unlist(df)
+info <- table(df)
+info <- as.data.frame(info)
+colnames(info)[1] <- "word"
+
+# List_of_words_to_remove <- c (
+#     'the', "and", 'will', "you", "for", "this", "are", 'that', 'your', 'our',
+#     'with', 'have', 'all', 'also', 'there', 'ico', 'one', 'when', 'token', 'people',
+#     'make', 'hi', 'was', 'were', 'their', 'about', 'they', 'smart', 'tokens', 'use'
+# )
+
+#info <- info[!info$df %in% List_of_words_to_remove,]
+
+mood <- info %>%
+    inner_join(afinn) %>% 
+    group_by(word) %>% 
+    mutate(BigScore = Freq * score) %>% 
+    arrange( desc(BigScore) ) 
+
+print(
+    paste0(
+        'Attitude score is: ', round( sum(mood$BigScore)/max_number_of_posts , 1)
+    )
+)
