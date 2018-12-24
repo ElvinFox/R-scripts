@@ -17,8 +17,8 @@ x <- c( 'author', 'date', 'text', 'rank', 'activity' )
 colnames(DF) <- x
 
 #   search for the number of the last page
-#input <- 'https://bitcointalk.org/index.php?topic=3407522'        #   <<------  insert here the core url
-input <- 'https://bitcointalk.org/index.php?topic=4790633'
+input <- 'https://bitcointalk.org/index.php?topic=4790633'        #   <<------  insert here the core url
+#input <- 'https://bitcointalk.org/index.php?topic=4790633'
 url <- paste0(input, '.', 0)
 BCT <- url %>% read_html() 
 
@@ -59,31 +59,35 @@ for ( n in 1 : last_page_number) {
             html_attr("class")
        
 
-        
-        #   messages number
-        msg_number <- BCT %>% 
-            html_nodes(xpath = XP)
+        messages_on_page <- 20
 
-        n <- 29
-        
-        q <- 1
+        pg <- 20
+
         my_function <- function(){
             
-            XP <- '//*[@id="ignmsgbttns561"]'
+
+            
+            XP <<- '//*[@id="ignmsgbttns561"]' #  <- number just a remark how the idea came to mind ˆ_ˆ
             #nchar(XP)
             #      number of important characters is 22
             for (q in 1 : 20){
-                new_XP <-  paste0(
+                new_XP <<-  paste0(
                     substr( XP,1, 20 ),
                     (max_number_of_posts - 20 + q) ,
                     substr( XP,nchar(XP)-1, nchar(XP) ) )
+                
+                #   messages number
+                msg_number <<- BCT %>% 
+                    html_nodes(xpath = new_XP)
             
                 ifelse( 
                     gsub("\\s.*", "", gsub("[[:punct:]]", "", gsub(".*ignmsgbttns", "", msg_number)) ) != "" ,
-                    pg <- as.numeric( gsub("\\s.*", "", gsub("[[:punct:]]", "", gsub(".*ignmsgbttns", "", msg_number)) ) ) ,
-                    messages_on_page <- as.numeric ( pg - ( (n-1) * 20 - q) ) ) 
+                    
+                    pg <<- as.numeric( gsub("\\s.*", "", gsub("[[:punct:]]", "", gsub(".*ignmsgbttns", "", msg_number)) ) ),
+                    
+                    "")
                     } 
-            messages_on_page
+            pg
         }
         
         ifelse (
@@ -91,21 +95,17 @@ for ( n in 1 : last_page_number) {
             my_function(),
             "") 
         
+
         
+        nmbr_of_msg_on_lst_pg <- pg-20*(n-1)
+        
+        ifelse(
+            n == last_page_number,
             
-        class_of_posts <- names( which( table( all_classes[which(nchar(all_classes) == 22)] ) == 20 ) )     
-        
-        
-               
-
-
-        
-        
-        
-        
-        
-        
-               
+            class_of_posts <- names( which( table( all_classes[which(nchar(all_classes) == 22)] ) == nmbr_of_msg_on_lst_pg ) ),
+            
+            class_of_posts <- names( which( table( all_classes[which(nchar(all_classes) == 22)] ) == 20 ) )  
+        )   
         
 
         
@@ -126,16 +126,18 @@ for ( n in 1 : last_page_number) {
             html_nodes('.post') %>% 
             html_text()  
         #post[20]
-        post
+        
         
         post1 <- BCT %>% 
             html_nodes(paste0('.',class_of_posts)) %>% 
             html_nodes('.post') 
         
         result <- list()
+         
         
-        for(i in 1:20) {
-            result[i] <- grepl("Quote", post1[i])
+        
+        for(z in 1:nmbr_of_msg_on_lst_pg) {
+            result[z] <- grepl("Quote", post1[z])
         }
         nmbr <-  which(result == TRUE)
         
@@ -145,9 +147,10 @@ for ( n in 1 : last_page_number) {
         # }
         
         
-        for(i in nmbr) {
-            pos <- as.numeric( gregexpr(pattern ='</div>', as.character( post1[i] ) )[[1]] )
-            post[i] <- substr(as.character( post1[i] ),pos[length(pos)-1], pos[length(pos)] )
+        #   extracting post info
+        for(w in nmbr) {
+            pos <- as.numeric( gregexpr(pattern ='</div>', as.character( post1[w] ) )[[1]] )
+            post[w] <- substr(as.character( post1[w] ),pos[length(pos)-1], pos[length(pos)] )
         }
         
         
@@ -269,34 +272,40 @@ bar
 
 
 ####    Summary of the thread
-print(
-    paste0( 'There are ', last_page_number, ' pages in the thread.',
-            ' The topic was viewed ', round(number_of_views/1e3,1), 'k times.',
-            ' There are ')
-)
 
 topic_starter <- as.character(DF$authors[[1]])
 
 print( 
-    paste0( 
-        'The topic starter -> ', topic_starter, '  contributed the thread with ', as.numeric( table(DF$authors) [topic_starter]), ' posts.',
-        ' This is ~', round(as.numeric( table(DF$authors) [topic_starter])/max_number_of_posts,1)*100, '% of all posts in the thread.',
-        ' The topic was created on ', DF$post_date[1]
-    )
+    strsplit(
+        paste0( 
+            ' The topic was created on ', DF$post_date[1],
+            '\n',
+            ' There are ', last_page_number, ' pages in the thread.',
+            '\n',
+            ' The topic was viewed ', round(number_of_views/1e3,1), 'k times.',
+            ' The number of views per page is ', round( round(number_of_views/1e3,1)/last_page_number , 1), 'k .',
+            '\n',
+            ' The topic starter -> ', topic_starter, '  contributed the thread with ', as.numeric( table(DF$authors) [topic_starter]), ' posts.',
+            ' This is ~', round(as.numeric( table(DF$authors) [topic_starter])/max_number_of_posts,1)*100, '% of all posts in the thread.',
+            '\n',
+            ' Top 10 users by number of comments in the thread provided ', sum(brief_summary$share[1:10]), '% of all comments.'
+            )
+    , '\n')
 )
 
+DF %>%
+    group_by(authors, user_rank) %>%
+    summarise( n = n(), share = round(n/nrow(DF)*100,1)) %>% 
+    arrange(desc(n)) %>% 
+    head (10)
 
-brief_summary <- DF %>% 
-    select( authors, user_rank ) %>% 
-    group_by ( authors ) %>% 
-    summarise( n = n(), share = round( n / nrow(DF)*100,1) ) %>% 
-    arrange( desc(n) )
 
-print(
-    paste0(
-        'Top 10 users by number of comments in the thread provided ', sum(brief_summary$share[1:10]), '% of all comments.'
-    )
-)
+
+
+
+
+
+
 
 
 
@@ -322,9 +331,9 @@ DF$post <-   gsub("</div>", "", DF$post)
 
 #remove punctuation
 DF$post <-   gsub('[[:punct:] ]+',' ', DF$post)
+DF$post <-   gsub('[[:digit:]]',' ', DF$post)
 
-
-write.csv2(DF, file = "BCT_parsing.csv")
+#write.csv2(DF, file = "BCT_parsing.csv")
 
 DF$post[28]
 
@@ -356,6 +365,7 @@ df <- unlist(df)
 info <- table(df)
 info <- as.data.frame(info)
 colnames(info)[1] <- "word"
+info$word <- as.character(info$word)
 
 # List_of_words_to_remove <- c (
 #     'the', "and", 'will', "you", "for", "this", "are", 'that', 'your', 'our',
@@ -368,14 +378,37 @@ colnames(info)[1] <- "word"
 mood <- info %>%
     inner_join(afinn) %>% 
     group_by(word) %>% 
-    mutate(BigScore = Freq * score) %>% 
+    mutate(BigScore = Freq * score, index = ) %>% 
     arrange( desc(BigScore) ) 
 
-print(
-    paste0(
-        'Attitude score is: ', round( sum(mood$BigScore)/max_number_of_posts , 1)
-    )
-)
+
+
+# print(
+#     paste0(
+#         'Attitude score is: ', round( sum(mood$BigScore)/max_number_of_posts , 1)
+#     )
+# )
+
+
+
+# visualize the attitude
+library(ggplot2)
+
+ggplot(mood, aes(Freq, BigScore, fill = score)) +
+    geom_col(show.legend = TRUE) +
+    theme(
+        axis.text=element_text(size=12),
+        plot.title = element_text(color="#993333", size=14, face="bold.italic"),
+        axis.title.x = element_text(color="#993333", size=14, face="bold"),
+        axis.title.y = element_text(color="#993333", size=14, face="bold")
+    ) +
+    scale_fill_gradient(low ="red", high ="green") +
+    xlab("Frequency of word") +
+    ylab("Aggregated attitude score") +
+    ggtitle("Community attitude") +
+    labs(fill="Word score")
+
+    #facet_wrap(~score, ncol = 2, scales = "free_x")
 
 
 library(wordcloud)
@@ -408,6 +441,7 @@ rquery.wordcloud(filePath, type ="file", lang = "english", max.words = 200, min.
 
 
 rquery.wordcloud(Words_, type ="text", lang = "english", max.words = 100, min.freq = 3)
+
 
 
 
