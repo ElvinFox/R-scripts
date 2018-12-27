@@ -17,7 +17,7 @@ x <- c( 'author', 'date', 'text', 'rank', 'activity' )
 colnames(DF) <- x
 
 #   search for the number of the last page
-input <- 'https://bitcointalk.org/index.php?topic=4720775'        #   <<------  insert here the core url
+input <- 'https://bitcointalk.org/index.php?topic=4694028'        #   <<------  insert here the core url
 #input <- 'https://bitcointalk.org/index.php?topic=4790633'
 url <- paste0(input, '.', 0)
 BCT <- url %>% read_html() 
@@ -218,8 +218,11 @@ DF$post_date <- mdy_hms(DF$post_date)
 DF$Month_ <- as.Date(cut(DF$post_date,
                          breaks = "month"))
 For_plotting <- DF %>% 
+    filter(user_rank != "Newbie") %>% 
+    filter(user_rank != "Member") %>%
     #group_by(Month_) %>% 
     group_by(Month_, user_rank) %>% 
+    
     summarise(count = n()) 
 
 library(ggplot2)
@@ -233,7 +236,8 @@ pop <- ggplot(For_plotting, aes( Month_, count, fill = user_rank)) +
     theme(
         plot.title = element_text(color="#993333", size=14, face="bold.italic"),
         axis.title.x = element_text(color="#993333", size=14, face="bold"),
-        axis.title.y = element_text(color="#993333", size=14, face="bold")
+        axis.title.y = element_text(color="#993333", size=14, face="bold"),
+        axis.text.x = element_text(angle = 30, hjust = 1)
         #legend.position="none"
     ) +
     xlab("Date") +
@@ -244,6 +248,8 @@ pop
 ####    Plot for pie chart of different members types
 
 For_pie <- DF %>% 
+    filter(user_rank != "Newbie") %>% 
+    filter(user_rank != "Member") %>%
     group_by(user_rank) %>% 
     summarise(count = n()) %>% 
     mutate(per = round(count/sum(count)*100,1) ) %>% 
@@ -257,6 +263,7 @@ bar <- ggplot(For_pie, aes(user_rank, count, fill = user_rank)) +
         plot.title = element_text(color="#993333", size=14, face="bold.italic"),
         axis.title.x = element_text(color="#993333", size=14, face="bold"),
         axis.title.y = element_text(color="#993333", size=14, face="bold"),
+        axis.text.x = element_text(angle = 30, hjust = 1),
         legend.position="none"
     ) +
     xlab("Member status") +
@@ -294,7 +301,7 @@ print(
             ' The topic starter -> ', topic_starter, '  contributed the thread with ', as.numeric( table(DF$authors) [topic_starter]), ' posts.',
             ' This is ~', round(as.numeric( table(DF$authors) [topic_starter])/max_number_of_posts,1)*100, '% of all posts in the thread.',
             '\n',
-            ' Top 10 users by number of comments in the thread provided ', sum(share), '% of all comments.'
+            ' Top 10 users by number of comments in the thread provided ', sum(brief_summary$share), '% of all comments.'
             )
     , '\n')
 )
@@ -365,6 +372,9 @@ afinn$score[afinn$word == 'scam'] <- -5
 afinn$score[afinn$word == 'fake'] <- -4
 afinn$score[afinn$word == 'risk'] <- -4
 
+# DF <- DF %>% 
+#     filter(DF$user_rank != "Newbie")
+
 
 Words_ <- strsplit(DF$post, " ")
 Words_ <- unlist(Words_)
@@ -372,6 +382,7 @@ Words_ <- tolower(Words_)
 #Words_
 
 df <- list()
+
 
 
 # VERY time consuming coptutation, need to rework
@@ -428,7 +439,7 @@ ggplot(mood, aes(Freq, BigScore, fill = score)) +
     scale_fill_gradient(low ="red", high ="green") +
     xlab("Frequency of word") +
     ylab("Aggregated attitude score") +
-    ggtitle(paste0("Community attitude", " +%Topic_Name%") ) +
+    ggtitle(paste0("Community attitude toward", " Jinbi", " project") ) +
     labs(fill="Word score") +
     scale_x_continuous(trans='log2') 
 
@@ -437,39 +448,64 @@ ggplot(mood, aes(Freq, BigScore, fill = score)) +
 
 
 
+##  Creating plots for positive and negative words
+
+# positive words
+pos <- info %>%
+    inner_join(get_sentiments("bing")) %>% 
+    group_by(word) %>%
+    arrange(desc(Freq)) %>% 
+    filter(Freq > 10 && sentiment == "positive") %>% 
+    head(40)
+
+# negative words
+neg <- info %>%
+    inner_join(get_sentiments("bing")) %>% 
+    group_by(word) %>%
+    arrange(desc(Freq)) %>% 
+    filter(Freq > 10 && sentiment == "negative") %>% 
+    head(40)
+
+# change axis limit to max of both
+limt <-  ifelse( max(pos$Freq) > max(neg$Freq), max(pos$Freq) , max(neg$Freq))
 
 
+##  Plotting
+
+p_w <- ggplot(pos, aes(reorder(word, Freq), Freq)) + 
+    geom_bar(stat = "identity", fill = "#13f72e", alpha = 0.75) + 
+    theme(
+        plot.title = element_text(color="#993333", size=14, face="bold.italic"),
+        axis.title.x = element_text(color="#993333", size=14, face="bold"),
+        axis.title.y = element_text(color="#993333", size=14, face="bold"),
+        legend.position="none"
+    ) +
+    xlab("") +
+    ylab("Number of appearences") +
+    ggtitle("Positive words") +
+    scale_y_continuous(limits = c(0,limt*1.1))  +
+    geom_text(aes(label = Freq), size = 4, hjust=-0.1) +
+    coord_flip()
+
+n_w <- ggplot(neg, aes(reorder(word, Freq), Freq))+ 
+    geom_bar(stat = "identity", fill = "#f91332", alpha = 0.85) + 
+    theme(
+        plot.title = element_text(color="#993333", size=14, face="bold.italic"),
+        axis.title.x = element_text(color="#993333", size=14, face="bold"),
+        axis.title.y = element_text(color="#993333", size=14, face="bold"),
+        legend.position="none"
+    ) +
+    xlab("") +
+    ylab("Number of appearences") +
+    ggtitle("Negative words") +
+    scale_y_continuous(limits = c(0,limt*1.1))  +
+    geom_text(aes(label = Freq), size = 4, hjust=-0.1) +
+    coord_flip()
+
+# arrage two plots side by side
+library(gridExtra)
+grid.arrange(p_w, n_w, ncol = 2)
 
 
+table(info$word == 'scam')
 
-
-library(wordcloud)
-
-install.packages(c("tm", "SnowballC", "wordcloud", "RColorBrewer", "RCurl", "XML"))
-library("tm")
-library("SnowballC")
-library("wordcloud") 
-library("RColorBrewer") 
-library("RCurl")
-library("XML")
-source('http://www.sthda.com/upload/rquery_wordcloud.r')
-
-info %>%
-    count(word) %>%
-    with(wordcloud(word, n, max.words = 15))
-
-# rquery.wordcloud(x, type=c("text", "url", "file"), 
-#                  lang="english", excludeWords = NULL, 
-#                  textStemming = FALSE,  colorPalette="Dark2",
-#                  max.words=200)
-
-just_text <- as.character( unlist(info$word) )
-just_text <- paste(just_text, collapse = '')
-
-filePath <- "http://www.sthda.com/sthda/RDoc/example-files/martin-luther-king-i-have-a-dream-speech.txt"
-TXT <- readLines ("http://www.sthda.com/sthda/RDoc/example-files/martin-luther-king-i-have-a-dream-speech.txt")
-
-rquery.wordcloud(filePath, type ="file", lang = "english", max.words = 200, min.freq = 2)
-
-
-rquery.wordcloud(Words_, type ="text", lang = "english", max.words = 100, min.freq = 3)
