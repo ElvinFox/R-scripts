@@ -15,9 +15,10 @@ knitr::opts_chunk$set(echo = FALSE)
 suppressPackageStartupMessages(library('rvest'))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(remedy))  # very useful for Markdown formatting
 
-tkn_price <- 0.1
-Token <- "skycoin"
+tkn_price <- 0.0320
+Token <- "neo"
 p1 <- "https://coinmarketcap.com/currencies/"
 p2 <- "/#markets"
 
@@ -154,7 +155,7 @@ The top 20 traded Pairs on exchanges are listed below:
 
 ```{r} 
 
-head(markets,20)
+#head(markets,20)
 ```
 
 ## Top 5 Exchanges Shares  
