@@ -515,3 +515,30 @@ print(
 )
 
 table(info$word == 'scam')
+
+
+library(tidyverse)
+library(tidytext)
+library(janeaustenr)
+
+
+
+d <- data_frame(txt = DF$post)
+
+tidy_words <- d %>%
+    unnest_tokens(word, txt) %>%
+    anti_join(stop_words)
+
+tidy_words <- tidy_words %>%
+    count(word, sort = TRUE)    
+
+
+mood <- tidy_words %>%
+    inner_join(afinn) %>% 
+    group_by(word) %>% 
+    mutate(BigScore = n * score) %>% 
+    arrange( desc(BigScore) ) %>% 
+    filter(n > 5)
+
+
+# for more details https://www.tidytextmining.com/sentiment.html#the-sentiments-dataset
