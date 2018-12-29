@@ -17,8 +17,8 @@ x <- c( 'author', 'date', 'text', 'rank', 'activity' )
 colnames(DF) <- x
 
 #   search for the number of the last page
-input <- 'https://bitcointalk.org/index.php?topic=4694028'        #   <<------  insert here the core url
-#input <- 'https://bitcointalk.org/index.php?topic=4790633'
+input <- 'https://bitcointalk.org/index.php?topic=5056272'        #   <<------  insert here the core url
+
 url <- paste0(input, '.', 0)
 BCT <- url %>% read_html() 
 
@@ -218,8 +218,8 @@ DF$post_date <- mdy_hms(DF$post_date)
 DF$Month_ <- as.Date(cut(DF$post_date,
                          breaks = "month"))
 For_plotting <- DF %>% 
-    filter(user_rank != "Newbie") %>% 
-    filter(user_rank != "Member") %>%
+    #filter(user_rank != "Newbie") %>% 
+    #filter(user_rank != "Member") %>%
     #group_by(Month_) %>% 
     group_by(Month_, user_rank) %>% 
     
@@ -248,8 +248,8 @@ pop
 ####    Plot for pie chart of different members types
 
 For_pie <- DF %>% 
-    filter(user_rank != "Newbie") %>% 
-    filter(user_rank != "Member") %>%
+    #filter(user_rank != "Newbie") %>% 
+    #filter(user_rank != "Member") %>%
     group_by(user_rank) %>% 
     summarise(count = n()) %>% 
     mutate(per = round(count/sum(count)*100,1) ) %>% 
@@ -456,7 +456,7 @@ pos <- info %>%
     group_by(word) %>%
     arrange(desc(Freq)) %>% 
     filter(Freq > 10 && sentiment == "positive") %>% 
-    head(40)
+    head(30)
 
 # negative words
 neg <- info %>%
@@ -464,7 +464,7 @@ neg <- info %>%
     group_by(word) %>%
     arrange(desc(Freq)) %>% 
     filter(Freq > 10 && sentiment == "negative") %>% 
-    head(40)
+    head(30)
 
 # change axis limit to max of both
 limt <-  ifelse( max(pos$Freq) > max(neg$Freq), max(pos$Freq) , max(neg$Freq))
@@ -507,5 +507,11 @@ library(gridExtra)
 grid.arrange(p_w, n_w, ncol = 2)
 
 
-table(info$word == 'scam')
 
+print(
+    paste0(
+        'Number of appearences of word SCAM '
+    )
+)
+
+table(info$word == 'scam')
