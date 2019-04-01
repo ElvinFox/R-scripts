@@ -4,8 +4,10 @@ library(tibble)
 library(lubridate) 
 library(sjmisc)
 library(gtools)
+library(stringr)
 
 
+# most probably Rselenium is needed  [JAVA] is required for work
 
 ### https://www.ozon.ru/category/7500/
 ### https://www.ozon.ru/category/11424/ 
@@ -15,10 +17,20 @@ library(gtools)
 
 
 input <- "https://www.ozon.ru/category/7500/"
+url <- "https://www.ozon.ru/category/7500/"
 
-url <- paste0(input, "?page=",i )
+
+url <- paste0(input, "?page=",2 )
 OZN <- url %>% read_html()
 
+as.character(OZN)
+
+OZN %>% 
+    html_nodes(".layout-page")
+
+
+
+document.querySelector('body > iframe:nth-child(1)')
 
 nmbr <- 
     OZN %>% 
