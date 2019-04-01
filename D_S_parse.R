@@ -4,151 +4,138 @@ library(tibble)
 library(lubridate) 
 #library(imager)
 library(sjmisc)
+library(gtools)
 
 
 
+start_url <- c("https://www.dochkisinochki.ru/icatalog/categories/odezhda/",
+"https://www.dochkisinochki.ru/icatalog/categories/obuv/",
+"https://www.dochkisinochki.ru/icatalog/categories/shkolnaya-odezhda/")
+
+
+DS <- "https://www.dochkisinochki.ru/icatalog/categories/odezhda/" %>% read_html()
+
+page <- DS %>% 
+    html_nodes(".catMsbar") %>%
+    html_nodes(".pagination-new a") %>% html_text() %>% as.character()
+
+last_page <- max (as.numeric( gsub("[^0-9]", "", page) ) , na.rm = TRUE)
+    
+
+Ids <- list()
+
+for (i in 1:last_page) {
+    input <-
+        'https://www.dochkisinochki.ru/icatalog/categories/odezhda/'  # <- starting link
+    
+    url <- paste0(input, '?line=&PAGEN_1=', i)
+    DS <- url %>% read_html()
+    
+    
+    # id of SKUs
+    href <-
+        DS %>%
+        html_nodes(".esk-content") %>% 
+        html_nodes(".jDataLink") %>% html_attr("href")
+    
+    
+    Ids <- rbind(Ids, href)
+    
+    print(paste0("i = ", i, " ", Sys.time()))
+    if( (i %% 5) == 0 ) Sys.sleep(round(runif(1,1,2),0))
+}
 
 
 
-Seasons <- list()
-Collections <- list()
-Genders <- list()
-Ages <- list()
-IDs <- list()
-Img_links <- list()
-Linings <- list()
-Styles <- list()
-Heights <- list()
-Compositions <- list()
-Materials <- list()
-Water_resists <- list()
-Air_permeabilitys <- list()
-Outsole_materials <- list()
-Collection_years <- list()
+lvl <- Ids
 
+DS_df <- data.frame()
 start_time <- Sys.time()
 
 n <- 1
 for (i in lvl) {
+    
+    input <-'https://www.dochkisinochki.ru/icatalog/products/'  # <- starting link
+    
+    url <- paste0(input,  i, "/")
+    
+    
+    mod2 = try( DS <- url %>% read_html() , TRUE)
+    if (isTRUE(class(mod2) == "try-error")) {
+        next
+    } else {
+        DS <- url %>% read_html()
         
-        input <-'https://www.dochkisinochki.ru/icatalog/products/'  # <- starting link
+        img_link <- DS %>%
+            html_node(".cloudzoom-gallery")
+        img_link <- gsub(".*zoomImage:.", "", img_link)
+        img_link <- substr(img_link, 1, nchar(img_link) - 4)
         
-        url <- paste0(input,  i, "/")
+        
+        ### product tree, it has main part and sub part (tree_2)
+        tree_1 <-
+            DS %>%
+            html_nodes(".shop-center-module") %>%
+            html_nodes(".breadcrumb") %>% 
+            html_nodes(".ulpopup a") %>% html_text()
+        
+        tree_1 <- as.data.frame(tree_1)
+        colnames(tree_1)<- "col1"
         
         
-        mod2 = try( DS <- url %>% read_html() , TRUE)
-        if (isTRUE(class(mod2) == "try-error")) {
-                next
-        } else {
-                DS <- url %>% read_html()
-                # characteristics
-                tbl <- DS %>%
-                        html_nodes(".tth_text table") %>%
-                        html_table()
-                tbl <- as.data.frame(tbl)
-                
-                img_link <- DS %>%
-                        html_node(".cloudzoom-gallery")
-                img_link <- gsub(".*zoomImage:.", "", img_link)
-                img_link <- substr(img_link, 1, nchar(img_link) - 4)
-                
-                Season <- ifelse(is_empty(tbl[grepl("Сезон", tbl$X1), 2]), "NA",tbl[tbl$X1 == "Сезон", 2])
-                Style <- ifelse(is_empty(tbl[grepl("Назначение", tbl$X1), 2]), "NA" ,tbl[tbl$X1 == "Назначение", 2])
-                Height <- ifelse(is_empty(tbl[grepl("Рост", tbl$X1), 2]), "NA",tbl[tbl$X1 == "Рост", 2])
-                Composition <- ifelse(is_empty(tbl[grepl("Состав", tbl$X1), 2]), "NA", tbl[grepl("Состав", tbl$X1), 2])
-                Material <- ifelse(is_empty(tbl[grepl("^Материал$", tbl$X1), 2]), "NA", tbl[grepl("^Материал$", tbl$X1), 2])
-                Water_resist <- ifelse(is_empty(tbl[grepl("Водонепроницаемость", tbl$X1), 2]), "NA", tbl[grepl("Водонепроницаемость", tbl$X1), 2])
-                Air_permeability <- ifelse(is_empty(tbl[grepl("Воздухопроницаемость", tbl$X1), 2]), "NA", tbl[grepl("Воздухопроницаемость", tbl$X1), 2])
-                Outsole_material <- ifelse(is_empty(tbl[grepl("Материал подошвы", tbl$X1), 2]), "NA", tbl[grepl("Материал подошвы", tbl$X1), 2])   
-                Lining <- ifelse(is_empty(tbl[grepl("Подкладка", tbl$X1), 2]), "NA", tbl[grepl("Подкладка", tbl$X1), 2])
-                Collection <- ifelse(is_empty(tbl[grepl("Коллекция", tbl$X1), 2]), "NA", tbl[grepl("Коллекция", tbl$X1), 2])
-                Collection_year <- ifelse(is_empty(tbl[grepl("Год коллекции", tbl$X1), 2]), "NA", tbl[grepl("Год коллекции", tbl$X1), 2])
-                Gender <- ifelse(is_empty(tbl[grepl("Пол", tbl$X1), 2]), "NA", tbl[grepl("Пол", tbl$X1), 2])
-                Age <- ifelse(is_empty(tbl[grepl("Возраст", tbl$X1), 2]), "NA", tbl[grepl("Возраст", tbl$X1), 2])
-                
-                
-                Seasons <- rbind(Seasons, Season)
-                Collections <- rbind(Collections, Collection)
-                Genders <- rbind(Genders, Gender)
-                Ages <- rbind(Ages, Age)
-                IDs <- rbind(IDs, i)
-                Img_links <- rbind(Img_links, img_link)
-                Linings <- rbind(Linings, Lining)
-                Styles <- rbind(Styles,Style)
-                Heights <- rbind(Heights,Height)
-                Compositions <- rbind(Compositions, Composition)
-                Materials <- rbind(Materials, Material)
-                Water_resists <- rbind(Water_resists,Water_resist)
-                Air_permeabilitys <- rbind(Air_permeabilitys,Air_permeability)
-                Outsole_materials <- rbind(Outsole_materials,Outsole_material)
-                Collection_years <- rbind(Collection_years,Collection_year)
+        tree_2 <-
+            DS %>%
+            html_nodes(".shop-center-module") %>%
+            html_nodes(".breadcrumb") %>% 
+            html_nodes(".nopopup a") %>% html_text()
+
+        tree <- rbind(tree_1, tree_2)
+        
+        for(u in 1:nrow(tree) ){
+            df <-  cbind (df, assign(paste("lvl", u, sep = ""), tree[u,1]))
+            colnames(df)[ncol(df)]<- paste0("lvl_",u)
         }
         
         
+        # characteristics
+        tbl <- DS %>%
+            html_nodes(".tth_text table") %>%
+            html_table()
+        tbl <- as.data.frame(tbl)
         
-        now <- Sys.time()
+        df <- cbind(img_link)
         
-        passed <- difftime(now, start_time, units = 'mins')
         
-        if ((n %% 50) == 0)
-                print(paste0("i = ", n, " minutes passed: ", passed))
-        if ((n %% 6) == 0)
-                Sys.sleep(round(runif(1, 1, 2), 0))
-        n <- n + 1
+        for(p in 1:nrow(tbl) ){
+            df <-  cbind (df, assign(paste("Desc", p, sep = ""), tbl[p,2]))
+            colnames(df)[ncol(df)]<- tbl[p,1]
+        }
+
+    }
+    df <- as.data.frame(df)
+    
+    DS_df <- smartbind(DS_df,df)
+    
+    tm <- round(difftime(now, start_time, units = "mins"),2)
+    
+    now <- Sys.time()
+    
+    passed <- difftime(now, start_time, units = 'mins')
+    
+    if ((n %% 50) == 0)
+    cat(
+        paste0("\n\ni -> ", n, "  \n",
+               "Time passed: ", round(difftime(now, start_time, units = "mins"),2), " mins", "  \n",
+               "Estimated minutes left: ", round( (length(lvl)-n) / ( n/as.numeric(tm) ),2) , 
+               " / Hours -> ",round( (length(lvl)-n) / ( n/as.numeric(tm) ) /60, 2)
+        )
+    )
+    if ((n %% 6) == 0)
+        Sys.sleep(round(runif(1, 1, 2), 0))
+    n <- n + 1
 }
 
-Seasons <- unlist(Seasons)
-Collections <- unlist(Collections)
-Genders <- unlist(Genders)
-Ages <- unlist(Ages)
-IDs <- unlist(IDs)
-Img_links <- unlist(Seasons)
-Linings <- unlist(Linings)
-Styles <- unlist(Styles)
-Heights <- unlist(Heights)
-Compositions <- unlist(Compositions)
-Materials <- unlist(Materials)
-Water_resists <- unlist(Water_resists)
-Air_permeabilitys <- unlist(Air_permeabilitys)
-Outsole_materials <- unlist(Outsole_materials)
-Collection_years <- unlist(Collection_years)
-
-
-
-Tbl_details <- data.frame(
-        Seasons, Collections, Genders, Ages, IDs, Img_links, 
-        Linings, Styles, Heights, Compositions, Materials, 
-        Water_resists, Air_permeabilitys, Outsole_materials, 
-        Collection_years, stringsAsFactors = FALSE
-)
+Tbl_details <- as.data.frame(df)
 
 
 write.csv2(Tbl_details, "DS_data.csv")
-
-
-
-
-##   9678567 <- error
-
-
-
-for(i in nmbrs) {
-        
-        input <-'https://www.dochkisinochki.ru/icatalog/products/'  # <- starting link
-        
-        url <- paste0(input,  i, "/")
-        
-        
-        mod2 = try( DS <- url %>% read_html() , TRUE)
-        if (isTRUE(class(mod2) == "try-error")) {
-                print("error")
-                next
-        } else {
-                DS <- url %>% read_html()
-                print("ok")
-        }
-}
-
-
-
-nmbrs <- c(9455103,10266419,9678567,9920634)
