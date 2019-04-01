@@ -79,6 +79,7 @@ for (i in new_ids) {
                     MT %>%
                     html_nodes(".grid_5 h1") %>% 
                     html_text()
+            prod_name <- gsub("[\n \t]", " ", prod_name)
             
             brand <- 
                     MT %>%
