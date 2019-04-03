@@ -222,3 +222,4 @@ for(i in lvl) {
 }
 
 write.csv2(AIZ_df, "AIZ_df.csv")
+
