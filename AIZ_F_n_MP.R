@@ -8,8 +8,32 @@ library(gtools)
 
 
 
-top_list <- c("https://aizel.ru/detskoe/devochki/", 
-              "https://aizel.ru/detskoe/malchiki/")
+# top_list <- c("https://aizel.ru/detskoe/devochki/", 
+#               "https://aizel.ru/detskoe/malchiki/")
+
+top_list <- c("https://aizel.ru/detskoe/devochki/verhnyaya-odezhda/",
+              "https://aizel.ru/detskoe/devochki/zhakety-zhilety/",
+              "https://aizel.ru/detskoe/devochki/platya/",
+              "https://aizel.ru/detskoe/devochki/bluzki/",
+              "https://aizel.ru/detskoe/devochki/futbolki-i-topy/",
+              "https://aizel.ru/detskoe/devochki/trikotazh/",
+              "https://aizel.ru/detskoe/devochki/dzhinsy/",
+              "https://aizel.ru/detskoe/devochki/yubki-i-shorty/",
+              "https://aizel.ru/detskoe/devochki/kombinezony/",
+              "https://aizel.ru/detskoe/devochki/plyazhnaya-odezhda/",
+              "https://aizel.ru/detskoe/devochki/obuv/",
+              
+              "https://aizel.ru/detskoe/malchiki/verhnyaya-odezhda/",
+              "https://aizel.ru/detskoe/malchiki/zhakety-zhilety/",
+              "https://aizel.ru/detskoe/malchiki/rubashki/",
+              "https://aizel.ru/detskoe/malchiki/futbolki/",
+              "https://aizel.ru/detskoe/malchiki/trikotazh/",
+              "https://aizel.ru/detskoe/malchiki/dzhinsy/",
+              "https://aizel.ru/detskoe/malchiki/bryuki/",
+              "https://aizel.ru/detskoe/malchiki/shorty/",
+              "https://aizel.ru/detskoe/malchiki/obuv/")
+
+
 
 urls <- data.frame()
 
@@ -23,13 +47,14 @@ for( l in top_list){
         html_nodes(".pagination li a") %>% 
         html_text() %>%  as.numeric()
     pages <- max( pages)
+    if(!is.finite(pages)) pages <- 1
     
     for (p in 1:pages){
         
         AIZ <-  paste0(l, "?page=", p) %>% 
             read_html()
         
-
+        category <- l
         
         prod_ref <- 
             AIZ %>% 
@@ -46,7 +71,7 @@ for( l in top_list){
         prod_img <- paste0("https:", prod_img)
 
         
-        url_list <- cbind( prod_ref, prod_img)
+        url_list <- cbind( prod_ref, prod_img, category)
         url_list <- as.data.frame(url_list)
         
         urls <- rbind(urls, url_list)
@@ -58,7 +83,7 @@ for( l in top_list){
 }
 
 setwd("~/AIZ")
-write.csv(urls, file="front_urls.csv")
+write.csv(urls, file="front.csv")
 
 
 
@@ -196,5 +221,4 @@ for(i in lvl) {
     n <- n+1
 }
 
-write.csv(AIZ_df, "AIZ_df.csv")
-
+write.csv2(AIZ_df, "AIZ_df.csv")
